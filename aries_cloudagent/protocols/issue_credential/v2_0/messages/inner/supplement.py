@@ -1,6 +1,6 @@
 """Supplements inner model."""
 
-from typing import Optional
+from typing import Optional, Sequence
 from uuid import uuid4
 from marshmallow import fields, validate
 
@@ -35,16 +35,22 @@ class SupplementAttributeSchema(BaseModelSchema):
     value = fields.Str(description="Value of attribute key value pair", required=True)
 
 
-class Supplements(BaseModel):
+class Supplement(BaseModel):
     """Model for the supplements received in issue credential message."""
 
     class Meta:
         """Meta of Supplements."""
 
-        schema_class = "SupplementsSchema"
+        schema_class = "SupplementSchema"
 
     def __init__(
-        self, *, type: str, ref: str, attrs: dict, id: Optional[str] = None, **kwargs
+        self,
+        *,
+        type: str,
+        ref: str,
+        attrs: Sequence[SupplementAttribute],
+        id: Optional[str] = None,
+        **kwargs
     ):
         """Initialize supplements."""
         super().__init__(**kwargs)
@@ -54,13 +60,13 @@ class Supplements(BaseModel):
         self.attrs = attrs
 
 
-class SupplementsSchema(BaseModelSchema):
+class SupplementSchema(BaseModelSchema):
     """Supplements schema."""
 
     class Meta:
         """Supplements meta."""
 
-        model_class = Supplements
+        model_class = Supplement
 
     type = fields.Str(
         description="Type of the supplement",
