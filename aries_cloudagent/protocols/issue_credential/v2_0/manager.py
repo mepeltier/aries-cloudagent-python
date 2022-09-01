@@ -9,7 +9,10 @@ from ....core.oob_processor import OobRecord
 from ....core.error import BaseError
 from ....core.profile import Profile
 from ....messaging.responder import BaseResponder
+from ....messaging.decorators.attach_decorator import AttachDecorator
 from ....storage.error import StorageError, StorageNotFoundError
+from ....protocols.issue_credential.v2_0.messages.inner.supplement import Supplement
+from ....wallet.models.attachment_data_record import AttachmentDataRecord
 
 from .messages.cred_ack import V20CredAck
 from .messages.cred_format import V20CredFormat
@@ -599,7 +602,11 @@ class V20CredManager:
         return cred_ex_record
 
     async def store_credential(
-        self, cred_ex_record: V20CredExRecord, cred_id: str = None
+        self,
+        cred_ex_record: V20CredExRecord,
+        cred_id: str = None,
+        supplement: Supplement = None,
+        attachment: AttachDecorator = None,
     ) -> Tuple[V20CredExRecord, V20CredAck]:
         """
         Store a credential in holder wallet; send ack to issuer.
@@ -607,6 +614,8 @@ class V20CredManager:
         Args:
             cred_ex_record: credential exchange record with credential to store and ack
             cred_id: optional credential identifier to override default on storage
+            supplements: supplements to the credential
+            attachments: attachments of other data associated with the credential
 
         Returns:
             Updated credential exchange record
@@ -618,6 +627,12 @@ class V20CredManager:
                 f"in {cred_ex_record.state} state "
                 f"(must be {V20CredExRecord.STATE_CREDENTIAL_RECEIVED})"
             )
+
+        attachment_data_record = AttachmentDataRecord(
+            supplement=supplement,
+            attachment=attachment,
+        )
+        # TODO: store attachment_data_record using indy and ld formats
 
         # Format specific store_credential handler
         for format in cred_ex_record.cred_issue.formats:
