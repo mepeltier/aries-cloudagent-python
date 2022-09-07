@@ -1,23 +1,22 @@
 """V2.0 issue-credential protocol manager."""
 
 import logging
-
 from typing import Mapping, Optional, Sequence, Tuple, Union
 
 
 from ....connections.models.conn_record import ConnRecord
-from ....core.oob_processor import OobRecord
 from ....core.error import BaseError
+from ....core.oob_processor import OobRecord
 from ....core.profile import Profile
 from ....messaging.decorators.attach_decorator import AttachDecorator
 from ....messaging.responder import BaseResponder
 from ....storage.error import StorageError, StorageNotFoundError
-
+from ....wallet.models.attachment_data_record import AttachmentDataRecord
 from .messages.cred_ack import V20CredAck
 from .messages.cred_format import V20CredFormat
 from .messages.cred_issue import V20CredIssue
 from .messages.cred_offer import V20CredOffer
-from .messages.cred_problem_report import V20CredProblemReport, ProblemReportReason
+from .messages.cred_problem_report import ProblemReportReason, V20CredProblemReport
 from .messages.cred_proposal import V20CredProposal
 from .messages.cred_request import V20CredRequest
 from .messages.inner.cred_preview import V20CredPreview
@@ -608,7 +607,11 @@ class V20CredManager:
         return cred_ex_record
 
     async def store_credential(
-        self, cred_ex_record: V20CredExRecord, cred_id: str = None
+        self,
+        cred_ex_record: V20CredExRecord,
+        cred_id: str = None,
+        supplements: Sequence[Supplement] = None,
+        attachments: Sequence[AttachDecorator] = None,
     ) -> Tuple[V20CredExRecord, V20CredAck]:
         """
         Store a credential in holder wallet; send ack to issuer.
@@ -616,6 +619,8 @@ class V20CredManager:
         Args:
             cred_ex_record: credential exchange record with credential to store and ack
             cred_id: optional credential identifier to override default on storage
+            supplements: supplements to the credential
+            attachments: attachments of other data associated with the credential
 
         Returns:
             Updated credential exchange record
@@ -636,6 +641,12 @@ class V20CredManager:
                 await cred_format.handler(self.profile).store_credential(
                     cred_ex_record, cred_id
                 )
+                async with self.profile.session() as session:
+                    await AttachmentDataRecord.save_attachments(
+                        session=session,
+                        supplements=supplements,
+                        attachments=attachments,
+                    )
                 # TODO: if storing multiple credentials we can't reuse the same id
                 cred_id = None
 
