@@ -1,20 +1,21 @@
 """Attachment Data Record"""
 
-from typing import Sequence
+from typing import List, Sequence, Union
+
 from marshmallow import fields
 
 from ...core.profile import ProfileSession
+from ...messaging.decorators.attach_decorator import (
+    AttachDecorator,
+    AttachDecoratorData,
+    AttachDecoratorSchema,
+)
 from ...messaging.models.base_record import BaseRecord, BaseRecordSchema
 from ...messaging.valid import UUIDFour
 from ...protocols.issue_credential.v2_0.messages.inner.supplement import (
     Supplement,
     SupplementAttribute,
     SupplementSchema,
-)
-from ...messaging.decorators.attach_decorator import (
-    AttachDecorator,
-    AttachDecoratorData,
-    AttachDecoratorSchema,
 )
 
 
@@ -53,11 +54,15 @@ class AttachmentDataRecord(BaseRecord):
 
     @classmethod
     async def query_by_cred_id_attribute(
-        self, session: ProfileSession, cred_id: str, attribute: str
+        cls, session: ProfileSession, cred_id: str, attribute: Union[str, List[str]]
     ):
         """Query by cred_id."""
-        tag_filter = {"cred_id": cred_id, "attribute": attribute}
-        return await self.retrieve_by_tag_filter(session, tag_filter)
+        if isinstance(attribute, list):
+            attrs = [{"attribute": attr} for attr in attribute]
+            tag_filter = {"cred_id": cred_id, "$or": attrs}
+        else:
+            tag_filter = {"cred_id": cred_id, "attribute": attribute}
+        return await cls.retrieve_by_tag_filter(session, tag_filter)
 
     @classmethod
     def attachment_lookup(cls, attachments: Sequence[AttachDecorator]) -> dict:
@@ -116,18 +121,15 @@ class AttachmentDataRecordSchema(BaseRecordSchema):
         allow_none=False,
         data_key="@id",
     )
-    supplements = fields.Nested(
+    supplement = fields.Nested(
         SupplementSchema,
-        description="Supplements to the credential",
-        many=True,
+        description="Supplement to the credential",
         required=False,
     )
-    attachments = fields.Nested(
+    attachment = fields.Nested(
         AttachDecoratorSchema,
-        many=True,
         required=False,
         description="Attachments of other data associated with the credential",
-        data_key="~attach",
     )
     cred_id = fields.Str(
         example="3fa85f64-5717-4562-b3fc-2c963f66afa6",
