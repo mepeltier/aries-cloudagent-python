@@ -2,7 +2,7 @@
 
 import logging
 
-from typing import Any, Mapping, Union
+from typing import Any, Mapping, Union, Sequence
 
 from marshmallow import fields, Schema, validate
 
@@ -76,8 +76,8 @@ class V20PresExRecord(BaseExchangeRecord):
         error_msg: str = None,
         trace: bool = False,  # backward compat: BaseRecord.FromStorage()
         by_format: Mapping = None,  # backward compat: BaseRecord.FromStorage()
-        supplements: Supplement = None,
-        attach: AttachDecorator = None,
+        supplements: Sequence[Supplement] = None,
+        attachments: Sequence[AttachDecorator] = None,
         **kwargs,
     ):
         """Initialize a new PresExRecord."""
@@ -96,7 +96,7 @@ class V20PresExRecord(BaseExchangeRecord):
         self.auto_verify = auto_verify
         self.error_msg = error_msg
         self.supplements = supplements
-        self.attach = attach
+        self.attachments = attachments
 
     @property
     def pres_ex_id(self) -> str:
@@ -332,8 +332,11 @@ class V20PresExRecordSchema(BaseExchangeSchema):
         required=False, description="Error message", example="Invalid structure"
     )
     supplements = fields.Nested(
-        SupplementSchema(), required=False, description="Supplementary attachment data"
+        SupplementSchema(),
+        required=False,
+        many=True,
+        description="Supplementary attachment data"
     )
-    attach = fields.Nested(
-        AttachDecoratorSchema(), required=False, description="File attachments"
+    attachments = fields.Nested(
+        AttachDecoratorSchema(), required=False, many=True, description="File attachments"
     )
