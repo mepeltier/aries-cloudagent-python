@@ -76,8 +76,8 @@ class V20PresExRecord(BaseExchangeRecord):
         error_msg: str = None,
         trace: bool = False,  # backward compat: BaseRecord.FromStorage()
         by_format: Mapping = None,  # backward compat: BaseRecord.FromStorage()
-        supplements: Sequence[Supplement] = None,
-        attachments: Sequence[AttachDecorator] = None,
+        supplements: Sequence[Union[Mapping, Supplement]] = None,
+        attachments: Sequence[Union[Mapping, AttachDecorator]] = None,
         **kwargs,
     ):
         """Initialize a new PresExRecord."""
@@ -95,8 +95,12 @@ class V20PresExRecord(BaseExchangeRecord):
         self.auto_present = auto_present
         self.auto_verify = auto_verify
         self.error_msg = error_msg
-        self.supplements = supplements
-        self.attachments = attachments
+        self.supplements = [
+            Supplement.serde(supplement).de for supplement in supplements or []
+        ]
+        self.attachments = [
+            AttachDecorator.serde(attachment).de for attachment in attachments or []
+        ]
 
     @property
     def pres_ex_id(self) -> str:
@@ -213,6 +217,14 @@ class V20PresExRecord(BaseExchangeRecord):
                 prop: getattr(self, f"_{prop}").ser
                 for prop in ("pres_proposal", "pres_request", "pres")
                 if getattr(self, prop) is not None
+            },
+            **{
+                prop: [item.serialize() for item in getattr(self, prop)]
+                for prop in (
+                    "supplements",
+                    "attachments",
+                )
+                if getattr(self, prop)
             },
         }
 
@@ -335,8 +347,11 @@ class V20PresExRecordSchema(BaseExchangeSchema):
         SupplementSchema(),
         required=False,
         many=True,
-        description="Supplementary attachment data"
+        description="Supplementary attachment data",
     )
     attachments = fields.Nested(
-        AttachDecoratorSchema(), required=False, many=True, description="File attachments"
+        AttachDecoratorSchema(),
+        required=False,
+        many=True,
+        description="File attachments",
     )
