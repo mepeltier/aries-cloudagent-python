@@ -11,7 +11,6 @@ from ....core.profile import Profile
 from ....messaging.decorators.attach_decorator import AttachDecorator
 from ....messaging.responder import BaseResponder
 from ....storage.error import StorageError, StorageNotFoundError
-from ....wallet.models.attachment_data_record import AttachmentDataRecord
 from .messages.cred_ack import V20CredAck
 from .messages.cred_format import V20CredFormat
 from .messages.cred_issue import V20CredIssue
@@ -569,6 +568,12 @@ class V20CredManager:
                     role=V20CredExRecord.ROLE_HOLDER,
                 )
             )
+            cred_ex_record.supplements = cred_issue_message.supplements
+            cred_ex_record.attachments = cred_issue_message.attachments
+            await cred_ex_record.save(
+                session,
+                reason="Save credential exchange record with supplements and attachments",
+            )
 
         cred_request_message = cred_ex_record.cred_request
         req_formats = [
@@ -610,8 +615,6 @@ class V20CredManager:
         self,
         cred_ex_record: V20CredExRecord,
         cred_id: str = None,
-        supplements: Sequence[Supplement] = None,
-        attachments: Sequence[AttachDecorator] = None,
     ) -> Tuple[V20CredExRecord, V20CredAck]:
         """
         Store a credential in holder wallet; send ack to issuer.
@@ -638,17 +641,14 @@ class V20CredManager:
             cred_format = V20CredFormat.Format.get(format.format)
 
             if cred_format:
-                await cred_format.handler(self.profile).store_credential(
-                    cred_ex_record, cred_id
-                )
-                if supplements:
-                    async with self.profile.session() as session:
-                        await AttachmentDataRecord.save_attachments(
-                            session=session,
-                            supplements=supplements,
-                            attachments=attachments,
-                            cred_id=cred_id,
-                        )
+                handler = cred_format.handler(self.profile)
+                await handler.store_credential(cred_ex_record, cred_id)
+                if cred_ex_record.supplements and cred_ex_record.attachments:
+                    await handler.store_supplements(
+                        cred_ex_record,
+                        supplements=cred_ex_record.supplements,
+                        attachments=cred_ex_record.attachments,
+                    )
                 # TODO: if storing multiple credentials we can't reuse the same id
                 cred_id = None
 
